@@ -43,7 +43,6 @@ pure_eval==0.2.3
 Pygments==2.18.0
 python-dateutil==2.9.0.post0
 python-telegram-bot==21.4
-pywin32==306
 pyzmq==26.1.0
 referencing==0.35.1
 requests==2.32.3
