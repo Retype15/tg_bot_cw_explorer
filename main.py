@@ -99,7 +99,6 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     color_emoji = ['🇲🇴', '🇻🇦', '🟥', '🇪🇺']
     if row:
 
-Aisha, [17/08/2024 12:42]
 await update.message.reply_text(f"Ubicación: {location}")
         color_counts = {ws.cell(row, column=i).value for i in range(2, 8)}
         x = 0
