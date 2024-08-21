@@ -185,11 +185,11 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return []
     
     if hasattr(update.message, 'forward_from') and update.message.forward_from and update.message.forward_from.id == 265204902:
-        await update.message.reply_text(get_text(update, 'forward_from_chatwars'))
+        await update.message.reply_text(get_text(update, 'message_forwarded'))
     elif hasattr(update.message, 'forward_origin') and update.message.forward_origin and update.message.forward_origin.sender_user and update.message.forward_origin.sender_user.id == 265204902:
-        await update.message.reply_text(get_text(update, 'processing_information'))
+        await update.message.reply_text(get_text(update, 'processing_info'))
     else:
-        await update.message.reply_text(get_text(update, 'command_only_for_forwarded'))
+        await update.message.reply_text(get_text(update, 'processing_info') + "NOT")
         return []
     ###################
     
