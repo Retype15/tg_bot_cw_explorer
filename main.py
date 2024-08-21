@@ -1,9 +1,10 @@
 from datetime import datetime
 import pytz
 import re
-from telegram import Update, InputFile
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, InputFile, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from openpyxl import Workbook, load_workbook
+from texts import * #TEXTS, get_text, detect_language
 
 # Ruta del archivo Excel
 EXCEL_PATH = "datos_extraidos.xlsx"
@@ -35,7 +36,7 @@ AUTHORIZED_USERS = load_authorized_users("users.txt")
 
 def is_authorized(user_id):
     """Verifica si el usuario está autorizado."""
-    return user_id in AUTHORIZED_USERS
+    return user_id in AUTHORIZED_USERS, "ANY"
     
 async def validate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if is_authorized(update.effective_user.id):
@@ -66,16 +67,17 @@ def cargar_o_crear_excel():
         wb = Workbook()
         ws = wb.active
         ws.title = "Datos Extraídos"
-        ws.append(["Ubicación", "🇲🇴", "🇻🇦", "🇮🇲", "🇪🇺", "Texto"])  # Encabezados
+        ws.append(["Ubicación", "🇲🇴", "🇻🇦", "🇮🇲", "🇪🇺", "text", time, user_posted])  # Encabezados
         wb.save(EXCEL_PATH)
     return wb, ws
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
-    if is_authorized(update.effective_user.id):
-        await update.message.reply_text(f'隆Hola {update.effective_user.first_name}! Bienvenido al bot.')
+    user_id = update.effective_user.id
+    if is_authorized(user_id):
+        await update.message.reply_text(get_text(update, 'welcome').format(name=update.effective_user.first_name)+"\n\n"+get_text(update, 'help_message'))
     else:
-        await update.message.reply_text("Lo siento, no tienes permiso para usar este bot.")
+        await update.message.reply_text(get_text(update,'no_permission'))
     ###################
 
 def extract_location(message: str):
@@ -83,13 +85,13 @@ def extract_location(message: str):
     pattern = r"([RGBY]{1,2})\s*(\d+)(?:#(\d+))?"
     match = re.search(pattern, message)
 
-    if match:
+    if match or match == "0_0":
         color_prefix = match.group(1).lower()  # Convertir el color a minúscula
         number1 = match.group(2)  # Primer número
         number2 = match.group(3) if match.group(3) else ""  # Segundo número opcional
         ubicacion = f"{color_prefix}{number1}{number2}"
     else:
-        ubicacion = "ubicacion_no_encontrada"
+        ubicacion = "no_location"
 
     return ubicacion
 
@@ -124,9 +126,11 @@ def find_row_for_location(ws, location):
 
 async def get_excel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
+    language_code = update.effective_user.language_code
+    user_id = update.effective_user.id
     if not is_authorized(update.effective_user.id):
-        await update.message.reply_text("Lo siento, no tienes permiso para usar este bot.")
-        return[]
+        await update.message.reply_text(get_text(update, 'no_permission'))
+        return []
     ##################
     
     file_path = EXCEL_PATH
@@ -136,9 +140,9 @@ async def get_excel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         with open(file_path, 'rb') as excel_file:
             await update.message.reply_document(document=excel_file)
     except FileNotFoundError:
-        await update.message.reply_text("El archivo no se encontró.")
+        await update.message.reply_text(get_text(update,'no_excel'))
     except Exception as e:
-        await update.message.reply_text(f"Ocurrió un error: {e}")
+        await update.message.reply_text(f"A error has ocurred: {e}")
 
 def save_to_excel(ws, location, color_counts, text, user_posted):
     """Guarda los datos extraídos en el archivo Excel."""
@@ -146,7 +150,7 @@ def save_to_excel(ws, location, color_counts, text, user_posted):
 
     if row is None:
         # Si la ubicación no existe, crea una nueva fila
-        new_row = [location] + [color_counts.get(color_emoji, 0) for color_emoji in ['🇲🇴', '🇻🇦', '🇮🇲', '🇪🇺']] + [text, user_posted]
+        new_row = [location] + [color_counts.get(color_emoji, 0) for color_emoji in ['🇲🇴', '🇻🇦', '🇮🇲', '🇪🇺']] + [text, time,user_posted]
         ws.append(new_row)
     else:
         # Si la ubicación ya existe, actualiza la fila existente
@@ -154,7 +158,7 @@ def save_to_excel(ws, location, color_counts, text, user_posted):
             ws.cell(row=row, column=i).value = color_counts.get(color_emoji, 0)
         ws.cell(row=row, column=6).value = text  # Actualiza el texto en la columna 6
         ws.cell(row=row, column=7).value = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        ws.cell(row=row, column=9).value = user_posted  # Actualiza el nombre del usuario en la columna 9
+        ws.cell(row=row, column=8).value = user_posted  # Actualiza el nombre del usuario en la columna 8
 
     # Guardar los cambios en el archivo Excel
     ws.parent.save(EXCEL_PATH)
@@ -176,24 +180,23 @@ def es_mensaje_valido(mensaje: str) -> bool:
     return bool(patterncomp.match(mensaje))
 
 async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    
     #####SEGURIDAD#####
     if update.message.chat.type in [update.message.chat.SUPERGROUP, update.message.chat.GROUP]:
         return []
     
     if hasattr(update.message, 'forward_from') and update.message.forward_from and update.message.forward_from.id == 265204902:
-        await update.message.reply_text("¡Este mensaje fue reenviado desde Chat Wars (@ChatWarsBot)!")
+        await update.message.reply_text(get_text(update, 'forward_from_chatwars'))
     elif hasattr(update.message, 'forward_origin') and update.message.forward_origin and update.message.forward_origin.sender_user and update.message.forward_origin.sender_user.id == 265204902:
-        await update.message.reply_text("Procesando información...")
+        await update.message.reply_text(get_text(update, 'processing_information'))
     else:
-        await update.message.reply_text("Este comando solo puede ser usado en mensajes reenviados desde Chat Wars (@ChatWarsBot).")
+        await update.message.reply_text(get_text(update, 'command_only_for_forwarded'))
         return []
     ###################
     
     message = update.message.text
     
     if not es_mensaje_valido(message):
-        await update.message.reply_text("Mensaje enviado no valido..!")
+        await update.message.reply_text(get_text(update, 'invalid_message'))
         return []
     
     wb, ws = cargar_o_crear_excel()
@@ -208,33 +211,37 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     msg = ""
     for color_emoji, count in color_counts.items():
         msg += f"\n{color_emoji} -> {count}"
-    await update.message.reply_text(f"Guardado!\nUbicación: {ubicacion}\nDetalles de colores: {msg}\nPosted By: {user_posted}")
+    await update.message.reply_text(
+    get_text(update, 'saved').format(ubicacion=ubicacion, colors=msg, user=user_posted)
+)
+
 
 
 async def send_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
     if not is_authorized(update.effective_user.id):
-        await update.message.reply_text("Lo siento, no tienes permiso para usar este bot.")
-        return[]
+        await update.message.reply_text(get_text(update, 'no_permission'))
+        return []
     ##################
     
     try:
         await update.message.reply_photo(photo=InputFile("map.jpg"))
     except Exception as e:
-        await update.message.reply_text(f"Error al enviar la imagen: {e}")
+        await update.message.reply_text(get_text(update, 'error_sending_image').format(error=e))
+
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
     if not is_authorized(update.effective_user.id):
-        await update.message.reply_text("Lo siento, no tienes permiso para usar este bot.")
-        return[]
+        await update.message.reply_text(get_text(update, 'no_permission'))
+        return []
     ##################
     
     wb, ws = cargar_o_crear_excel()
     
     location = context.args[0] if context.args else None
     if not location:
-        await update.message.reply_text("Por favor, proporciona una ubicación en el formato adecuado (por ejemplo, gy2).")
+        await update.message.reply_text(get_text(update, 'provide_location'))
         return
 
     row = find_row_for_location(ws, location)
@@ -252,22 +259,27 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             time_difference = -1
         
-        text = f"{ws.cell(row=row, column=6).value}\nTiempo transcurrido: {time_difference} minutos\nPosted by: {ws.cell(row=row, column=9).value}"
+        text = details=ws.cell(row=row, column=6).value
+        text += get_text(update, 'simple_info_footer').format(
+            time_difference=time_difference,
+            user=ws.cell(row=row, column=8).value
+        )
         await update.message.reply_text(text)
     else:
-        await update.message.reply_text(f"No se encontró información para la ubicación {location}.")
+        await update.message.reply_text(get_text(update, 'no_info_found').format(location=location))
 
 async def simple_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
     if not is_authorized(update.effective_user.id):
-        await update.message.reply_text("Lo siento, no tienes permiso para usar este bot.")
-        return[]
+        await update.message.reply_text(get_text(update, 'no_permission'))
+        return []
     ##################
+    
     wb, ws = cargar_o_crear_excel()
     
     location = context.args[0] if context.args else None
     if not location:
-        await update.message.reply_text("Por favor, proporciona una ubicación en el formato adecuado (por ejemplo, gy2).")
+        await update.message.reply_text(get_text(update, 'provide_location'))
         return
 
     row = find_row_for_location(ws, location)
@@ -286,31 +298,67 @@ async def simple_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             time_difference = -1
         
-        msg = f"Ubicación: {location}"
+        msg = get_text(update, 'simple_info_header').format(location=location)
         color_counts = [ws.cell(row, column=i).value for i in range(2, 6)]
         
         for x, count in enumerate(color_counts):
-            msg += f"\n{color_emoji[x]} -> {count}"
-        msg += f"\nTiempo transcurrido: {time_difference} minutos\nPosted by: {ws.cell(row=row, column=9).value}"
+            msg += get_text(update, 'color_count').format(color_emoji[x], count)
+        msg += get_text(update, 'simple_info_footer').format(time_difference=time_difference, user=ws.cell(row=row, column=8).value)
         await update.message.reply_text(msg)
     else:
-        await update.message.reply_text(f"No se encontró información para la ubicación {location}.")
+        await update.message.reply_text(get_text(update, 'no_info_found').format(location=location))
+
 
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
+    language_code = update.effective_user.language_code
+    user_id = update.effective_user.id
     if not is_authorized(update.effective_user.id):
-        await update.message.reply_text("Lo siento, no tienes permiso para usar este bot.")
-        return[]
+        await update.message.reply_text(get_text(update, 'no_permission'))
+        return []
     ##################
-    await update.message.reply_text(
-        "Usa /i + ubicación (ej: gy2) para obtener la información completa de una casilla específica.\n"
-        "Usa /info + ubicación (ej: gy2) para obtener el texto guardado en la quinta casilla de esa ubicación.\n"
-        "Usa /get_excel para obtener el Excel con las ubicaciones de la base de datos."
-    )
+    # Obtener el mensaje de ayuda basado en el idioma
+    await update.message.reply_text(get_text(update, 'help_message'))
+
+# Nuevo comando para establecer el idioma
+async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Permite al usuario seleccionar su idioma preferido."""
+    # Crear botones de idioma
+    buttons = [
+        [InlineKeyboardButton("English", callback_data='en')],
+        [InlineKeyboardButton("Español", callback_data='es')],
+        [InlineKeyboardButton("Русский", callback_data='ru')]
+    ]
+    
+    # Crear y enviar el teclado inline
+    keyboard = InlineKeyboardMarkup(buttons)
+    await update.message.reply_text(get_text(update, 'choose_language'), reply_markup=keyboard)
+
+async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    selected_language = query.data
+    user_id = query.from_user.id
+
+    # Cambia el idioma del usuario en USER_LANGUAGES
+    USER_LANGUAGES[user_id] = selected_language
+
+    # Obtiene el mensaje de confirmación en el nuevo idioma
+    confirmation_text = get_text(update, 'choose_language')
+
+    # Verifica si el nuevo texto es diferente del actual antes de editar
+    if query.message.text != confirmation_text:
+        await query.edit_message_text(text=confirmation_text)
+    else:
+        await query.answer()  # Esto previene que el callback quede "pendiente"
+
+
 
 # Configuración del bot
 app = ApplicationBuilder().token("7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4").build()
+# Explorer bot: 6436295787:AAHQYGQj94g_1iuuzmU5RQa43esNok7Cj3g
+# Test bot: 7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4
+
 
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("help", help))
@@ -318,6 +366,8 @@ app.add_handler(CommandHandler("get_excel", get_excel))
 app.add_handler(CommandHandler("map", send_map))
 app.add_handler(CommandHandler("i", simple_info))  # Comando /i original
 app.add_handler(CommandHandler("info", info))   # Nuevo comando /info
+app.add_handler(CommandHandler("set_language", set_language))
+app.add_handler(CallbackQueryHandler(set_language_callback))
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, save_message))
 
 # Inicia el bot
