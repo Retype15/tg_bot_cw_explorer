@@ -166,9 +166,9 @@ def save_to_excel(ws, location, color_counts, text, user_posted):
 
 patterncomp = re.compile(
     r"^You (climbed to the highest point in the|looked to the)\s+"  # Primera línea
-    r"(?:0#0|([RGBY]{1,2})\s*(\d+)(?:#(\d+))?)"  # Ubicación (opcional)
-    r"(?:Total:\s*\d+\s*👥\s*(?:🇲🇴|🇻🇦|🇮🇲|🇪🇺\s*:\s*\d+\s*👥,\s*Leader:\s*.+\s*)?)?"  # Total e información de equipo (opcional)
-    r"((?:🇲🇴|🇻🇦|🇮🇲|🇪🇺[\w\d\s]+ 🏅\d+ 👣\d+\s*)*)",  # Lista de usuarios (opcional)
+    r"(?:0#0|.*?([RGBY]{1,2})[\s\[\]]*(\d+)[\s\[\]]*(?:#(\d+))?.*?)"  # Ubicación (opcional)
+    r"(?:Total:\s*\d+\s*👥\s*(?:🇲🇴|🇻🇦|🇮🇲|🇪🇺\s*:\s*\d+\s*👥,\s*Leader:\s*.+\s*)?)?" # Total e información de equipo (opcional)
+    r"((?:🇲🇴|🇻🇦|🇮🇲|🇪🇺[\w\d\s]+ 🏅\d+ 👣\d+\s*)*)",  # Lista de usuarios (opcional),
     #r"(?:Combat options: /combat)?$",  # Opción de combate (opcional)
     re.DOTALL | re.MULTILINE
 )
@@ -212,7 +212,7 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     for color_emoji, count in color_counts.items():
         msg += f"\n{color_emoji} -> {count}"
     await update.message.reply_text(
-    get_text(update, 'saved_successfully').format(ubicacion=ubicacion, colors=msg, user=user_posted)
+    get_text(update, 'saved_successfully').format(location=ubicacion, msg=msg, user_posted=user_posted)
 )
 
 
