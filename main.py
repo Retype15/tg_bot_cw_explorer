@@ -82,10 +82,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 def extract_location(message: str):
     """Extrae la ubicación del mensaje y la convierte al formato esperado."""
-    pattern = r"([RGBY]{1,2})\s*(\d+)(?:#(\d+))?"
+    pattern = r"(?:0#0|([RGBY]{1,2})\s*(\d+)(?:#(\d+))?)"
     match = re.search(pattern, message)
 
-    if match or match == "0_0":
+    if match:
         color_prefix = match.group(1).lower()  # Convertir el color a minúscula
         number1 = match.group(2)  # Primer número
         number2 = match.group(3) if match.group(3) else ""  # Segundo número opcional
@@ -166,7 +166,7 @@ def save_to_excel(ws, location, color_counts, text, user_posted):
 
 patterncomp = re.compile(
     r"^You (climbed to the highest point in the|looked to the)\s+"  # Primera línea
-    r"(?:\[\w\s\d+#?\d*\]|[Y\s\d+#?\d*])?\s*"  # Ubicación (opcional)
+    r"(?:0#0|([RGBY]{1,2})\s*(\d+)(?:#(\d+))?)"  # Ubicación (opcional)
     r"(?:Total:\s*\d+\s*👥\s*(?:🇲🇴|🇻🇦|🇮🇲|🇪🇺\s*:\s*\d+\s*👥,\s*Leader:\s*.+\s*)?)?"  # Total e información de equipo (opcional)
     r"((?:🇲🇴|🇻🇦|🇮🇲|🇪🇺[\w\d\s]+ 🏅\d+ 👣\d+\s*)*)",  # Lista de usuarios (opcional)
     #r"(?:Combat options: /combat)?$",  # Opción de combate (opcional)
@@ -212,7 +212,7 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     for color_emoji, count in color_counts.items():
         msg += f"\n{color_emoji} -> {count}"
     await update.message.reply_text(
-    get_text(update, 'saved').format(ubicacion=ubicacion, colors=msg, user=user_posted)
+    get_text(update, 'saved_successfully').format(ubicacion=ubicacion, colors=msg, user=user_posted)
 )
 
 
@@ -355,7 +355,7 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 # Configuración del bot
-app = ApplicationBuilder().token("7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4").build()
+app = ApplicationBuilder().token("6436295787:AAHQYGQj94g_1iuuzmU5RQa43esNok7Cj3g").build()
 # Explorer bot: 6436295787:AAHQYGQj94g_1iuuzmU5RQa43esNok7Cj3g
 # Test bot: 7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4
 
