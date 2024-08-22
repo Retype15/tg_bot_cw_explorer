@@ -196,8 +196,6 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return []
         if not isGroup:
             await update.message.reply_text(get_text(update, 'invalid_message'))
-        else:
-            await update.message.reply_text(get_text(update, 'message_in_group'))
     
     wb, ws = cargar_o_crear_excel()
     
@@ -213,6 +211,10 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             msg += f"\n{color_emoji} -> {count}"
         await update.message.reply_text(
         get_text(update, 'saved_successfully').format(location=ubicacion, msg=msg, user_posted=user_posted))
+    else:
+        await update.message.reply_text(get_text(update, 'message_in_group'))
+
+#prubablemente necesitemos quitar el anterior else:
 
 async def send_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
