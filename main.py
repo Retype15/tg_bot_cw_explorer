@@ -2,7 +2,7 @@ from datetime import datetime
 import pytz
 import re
 from telegram import Update, InputFile, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler, CallbackContext
 from openpyxl import Workbook, load_workbook
 from texts import * #TEXTS, get_text, detect_language
 
@@ -75,7 +75,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
     user_id = update.effective_user.id
     if is_authorized(user_id):
-        await update.message.reply_text(get_text(update, 'welcome').format(name=update.effective_user.first_name)+"\n\n"+get_text(update, 'help_message'))
+        await update.message.reply_text(''.join(get_text(update, 'welcome').format(name=update.effective_user.first_name))+"\n\n"+''.join(get_text(update, 'help_message')))
     else:
         await update.message.reply_text(get_text(update,'no_permission'))
     ###################
@@ -163,15 +163,13 @@ def save_to_excel(ws, location, color_counts, text, user_posted):
     # Guardar los cambios en el archivo Excel
     ws.parent.save(EXCEL_PATH)
 
-
 patterncomp = re.compile(
     r"^You (climbed to the highest point in the|looked to the)\s+"  # Primera línea
     r"(?:0#0|.*?([RGBY]{1,2})[\s\[\]]*(\d+)[\s\[\]]*(?:#(\d+))?.*?)"  # Ubicación (opcional)
     r"(?:Total:\s*\d+\s*👥\s*(?:🇲🇴|🇻🇦|🇮🇲|🇪🇺\s*:\s*\d+\s*👥,\s*Leader:\s*.+\s*)?)?" # Total e información de equipo (opcional)
     r"((?:🇲🇴|🇻🇦|🇮🇲|🇪🇺[\w\d\s]+ 🏅\d+ 👣\d+\s*)*)",  # Lista de usuarios (opcional),
     #r"(?:Combat options: /combat)?$",  # Opción de combate (opcional)
-    re.DOTALL | re.MULTILINE
-)
+    re.DOTALL | re.MULTILINE)
 
 def es_mensaje_valido(mensaje: str) -> bool:
     # Si hay información de equipo, debe haber total
@@ -181,23 +179,25 @@ def es_mensaje_valido(mensaje: str) -> bool:
 
 async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
-    if update.message.chat.type in [update.message.chat.SUPERGROUP, update.message.chat.GROUP]:
-        return []
+    isGroup = update.message.chat.type in [update.message.chat.SUPERGROUP, update.message.chat.GROUP]
     
-    if hasattr(update.message, 'forward_from') and update.message.forward_from and update.message.forward_from.id == 265204902:
-        await update.message.reply_text(get_text(update, 'message_forwarded'))
+    if hasattr(update.message, 'forward_from') and update.message.forward_from and update.message.forward_from.id == 26520490:
+        if not isGroup: await update.message.reply_text(get_text(update, 'processing_info'))
     elif hasattr(update.message, 'forward_origin') and update.message.forward_origin and update.message.forward_origin.sender_user and update.message.forward_origin.sender_user.id == 265204902:
-        await update.message.reply_text(get_text(update, 'processing_info'))
+        if not isGroup: await update.message.reply_text(get_text(update, 'processing_info'))
     else:
-        await update.message.reply_text(get_text(update, 'processing_info') + "NOT")
+        if not isGroup: await update.message.reply_text(get_text(update, 'message_forwarded'))
         return []
     ###################
     
     message = update.message.text
     
     if not es_mensaje_valido(message):
-        await update.message.reply_text(get_text(update, 'invalid_message'))
         return []
+        if not isGroup:
+            await update.message.reply_text(get_text(update, 'invalid_message'))
+        else:
+            await update.message.reply_text(get_text(update, 'message_in_group'))
     
     wb, ws = cargar_o_crear_excel()
     
@@ -207,15 +207,12 @@ async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     user_posted = update.effective_user.username or update.effective_user.full_name
 
     save_to_excel(ws, ubicacion, color_counts, message, user_posted)
-
-    msg = ""
-    for color_emoji, count in color_counts.items():
-        msg += f"\n{color_emoji} -> {count}"
-    await update.message.reply_text(
-    get_text(update, 'saved_successfully').format(location=ubicacion, msg=msg, user_posted=user_posted)
-)
-
-
+    if not isGroup:
+        msg = ""
+        for color_emoji, count in color_counts.items():
+            msg += f"\n{color_emoji} -> {count}"
+        await update.message.reply_text(
+        get_text(update, 'saved_successfully').format(location=ubicacion, msg=msg, user_posted=user_posted))
 
 async def send_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
@@ -228,7 +225,6 @@ async def send_map(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_photo(photo=InputFile("map.jpg"))
     except Exception as e:
         await update.message.reply_text(get_text(update, 'error_sending_image').format(error=e))
-
 
 async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
@@ -260,10 +256,10 @@ async def info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             time_difference = -1
         
         text = details=ws.cell(row=row, column=6).value
-        text += get_text(update, 'simple_info_footer').format(
+        text += ''.join(get_text(update, 'simple_info_footer').format(
             time_difference=time_difference,
             user=ws.cell(row=row, column=8).value
-        )
+        ))
         await update.message.reply_text(text)
     else:
         await update.message.reply_text(get_text(update, 'no_info_found').format(location=location))
@@ -304,11 +300,9 @@ async def simple_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         for x, count in enumerate(color_counts):
             msg += get_text(update, 'color_count').format(color_emoji[x], count)
         msg += get_text(update, 'simple_info_footer').format(time_difference=time_difference, user=ws.cell(row=row, column=8).value)
-        await update.message.reply_text(msg)
+        await update.message.reply_text(''.join(msg))
     else:
         await update.message.reply_text(get_text(update, 'no_info_found').format(location=location))
-
-
 
 async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
@@ -319,7 +313,7 @@ async def help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return []
     ##################
     # Obtener el mensaje de ayuda basado en el idioma
-    await update.message.reply_text(get_text(update, 'help_message'))
+    await update.message.reply_text(''.join(get_text(update, 'help_message')))
 
 # Nuevo comando para establecer el idioma
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -355,7 +349,7 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 # Configuración del bot
-app = ApplicationBuilder().token("6436295787:AAHQYGQj94g_1iuuzmU5RQa43esNok7Cj3g").build()
+app = ApplicationBuilder().token("7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4").build()
 # Explorer bot: 6436295787:AAHQYGQj94g_1iuuzmU5RQa43esNok7Cj3g
 # Test bot: 7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4
 

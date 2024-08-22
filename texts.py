@@ -12,7 +12,8 @@ TEXTS = {
         'simple_info_footer': "\nElapsed time: {time_difference} minutes\nPosted by: {user}",
         'no_info_found': "No information found for location {location}.",
         'saved_successfully': "Saved!\nLocation: {location}\nColor Details: {msg}\nPosted By: {user_posted}",
-        'message_forwarded': "This message was forwarded from Chat Wars (@ChatWarsBot)!",
+        'message_forwarded': "The message must be forwarded from Chat Wars (@ChatWarsBot)!",
+        'message_in_group': "Report received, thank you for your help! 🫡",
         'processing_info': "Processing information...",
         'invalid_message': "Invalid message format!",
         'get_excel_error': "File not found.",
@@ -37,7 +38,8 @@ TEXTS = {
         'simple_info_footer': "\nTiempo transcurrido: {time_difference} minutos\nPublicado por: {user}",
         'no_info_found': "No se encontró información para la ubicación {location}.",
         'saved_successfully': "¡Guardado!\nUbicación: {location}\nDetalles de colores: {msg}\nPublicado por: {user_posted}",
-        'message_forwarded': "¡Este mensaje fue reenviado desde Chat Wars (@ChatWarsBot)!",
+        'message_forwarded': "¡El mensaje debe ser reenviado desde Chat Wars (@ChatWarsBot)!",
+        'message_in_group': "Reporte recibido, ¡gracias por tu ayuda! 🫡",
         'processing_info': "Procesando información...",
         'invalid_message': "¡Mensaje enviado no válido!",
         'get_excel_error': "El archivo no se encontró.",
@@ -62,7 +64,8 @@ TEXTS = {
         'simple_info_footer': "\nПрошло времени: {time_difference} минут\nОпубликовано: {user}",
         'no_info_found': "Информация по местоположению {location} не найдена.",
         'saved_successfully': "Сохранено!\nМестоположение: {location}\nДетали цветов: {msg}\nОпубликовано: {user_posted}",
-        'message_forwarded': "Это сообщение было переотправлено из Chat Wars (@ChatWarsBot)!",
+        'message_forwarded': "Сообщение должно быть переадресовано от Chat Wars (@ChatWarsBot)!",
+        'message_in_group': "Отчет получен, спасибо за вашу помощь! 🫡",
         'processing_info': "Обработка информации...",
         'invalid_message': "Неверный формат сообщения!",
         'get_excel_error': "Файл не найден.",
@@ -90,7 +93,9 @@ USER_LANGUAGES = {}
 
 def detect_language(language_code):
     """Detecta el idioma del usuario basado en el código de idioma proporcionado por Telegram."""
-    if language_code.startswith('es'):
+    if language_code == None:
+        return 'en'
+    elif language_code.startswith('es'):
         return 'es'
     elif language_code.startswith('ru'):
         return 'ru'
