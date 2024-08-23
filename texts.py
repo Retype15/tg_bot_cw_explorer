@@ -93,7 +93,7 @@ USER_LANGUAGES = {}
 
 def detect_language(language_code):
     """Detecta el idioma del usuario basado en el código de idioma proporcionado por Telegram."""
-    if language_code == None:
+    if language_code is None:
         return 'en'
     elif language_code.startswith('es'):
         return 'es'
