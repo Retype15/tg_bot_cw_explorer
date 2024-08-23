@@ -180,7 +180,8 @@ def es_mensaje_valido(mensaje: str) -> bool:
 async def save_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     #####SEGURIDAD#####
     isGroup = update.message.chat.type in [update.message.chat.SUPERGROUP, update.message.chat.GROUP]
-    
+    if isGroup is None:
+        return []
     if hasattr(update.message, 'forward_from') and update.message.forward_from and update.message.forward_from.id == 26520490:
         if not isGroup: await update.message.reply_text(get_text(update, 'processing_info'))
     elif hasattr(update.message, 'forward_origin') and update.message.forward_origin and update.message.forward_origin.sender_user and update.message.forward_origin.sender_user.id == 265204902:
@@ -351,7 +352,7 @@ async def set_language_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 # Configuración del bot
-app = ApplicationBuilder().token("7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4").build()
+app = ApplicationBuilder().token("6436295787:AAHQYGQj94g_1iuuzmU5RQa43esNok7Cj3g").build()
 # Explorer bot: 6436295787:AAHQYGQj94g_1iuuzmU5RQa43esNok7Cj3g
 # Test bot: 7523544789:AAE6u1waeC3kL3LpZK_7-J_CNqNTdPbybG4
 
